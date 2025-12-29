@@ -11,13 +11,18 @@
       --panel: #0b0b0b;
       --panel2: #111111;
       --border: rgba(255,255,255,.12);
-      --border2: rgba(255,255,255,.18);
       --text: #e5e7eb;
       --muted: rgba(229,231,235,.78);
+
       --emerald: #10b981;
-      --emerald2: rgba(16,185,129,.22);
-      --danger: rgba(239,68,68,.20);
-      --warn: rgba(245,158,11,.20);
+      --emeraldBorder: rgba(16,185,129,.40);
+      --emeraldBg: rgba(16,185,129,.14);
+
+      --dangerBorder: rgba(239,68,68,.35);
+      --dangerBg: rgba(239,68,68,.12);
+
+      --warnBorder: rgba(245,158,11,.35);
+      --warnBg: rgba(245,158,11,.14);
     }
 
     body {
@@ -62,29 +67,24 @@
     button { cursor: pointer; }
     button:hover, select:hover, input[type="text"]:hover { border-color: rgba(16,185,129,.35); }
 
-    /* Buttons */
     button.primary {
-      background: rgba(16,185,129,.14);
+      background: var(--emeraldBg);
       border-color: rgba(16,185,129,.35);
-      color: var(--text);
     }
     button.info {
       background: rgba(255,255,255,.06);
       border-color: var(--border);
-      color: var(--text);
     }
     button.danger {
       background: rgba(239,68,68,.10);
       border-color: rgba(239,68,68,.28);
-      color: var(--text);
     }
     button.good {
       background: rgba(16,185,129,.18);
       border-color: rgba(16,185,129,.42);
-      color: var(--text);
     }
 
-    .hint { display: none; } /* removed the line you didn’t want */
+    .hint { display: none; } /* removed the hint line */
 
     main { padding: 14px; }
 
@@ -103,7 +103,6 @@
       border-radius: 999px;
       background: rgba(16,185,129,.08);
     }
-    .chip b { color: var(--text); }
 
     .lead {
       border: 1px solid rgba(255,255,255,.10);
@@ -120,7 +119,7 @@
       align-items: flex-start;
     }
 
-    .name { font-size: 16px; font-weight: 900; margin: 0 0 6px; }
+    .name { font-size: 16px; font-weight: 900; margin: 0 0 6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
     .meta { font-size: 12px; color: var(--muted); }
 
     .idx {
@@ -131,6 +130,17 @@
       border-radius: 999px;
       padding: 4px 8px;
       white-space: nowrap;
+    }
+
+    .groupBadge{
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: .6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(16,185,129,.40);
+      background: rgba(16,185,129,.12);
+      color: var(--text);
     }
 
     .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
@@ -184,9 +194,9 @@
       display: inline-block;
       margin-left: 6px;
     }
-    .called { background: var(--warn); border-color: rgba(245,158,11,.35); }
-    .dnc { background: var(--danger); border-color: rgba(239,68,68,.35); }
-    .sold { background: var(--emerald2); border-color: rgba(16,185,129,.40); }
+    .called { background: var(--warnBg); border-color: var(--warnBorder); }
+    .dnc { background: var(--dangerBg); border-color: var(--dangerBorder); }
+    .sold { background: rgba(16,185,129,.18); border-color: rgba(16,185,129,.40); }
 
     .muted { opacity: .8; }
     .divider { height: 1px; background: rgba(255,255,255,.08); margin: 10px 0; }
@@ -222,7 +232,7 @@
       <button class="primary" id="btnImport">Import CSV</button>
       <button class="info" id="btnExportCsv">Export CSV</button>
       <button class="danger" id="btnClear">Clear All</button>
-      <input id="search" type="text" placeholder="Search name/phone..." />
+      <input id="search" type="text" placeholder="Search name/phone/notes..." />
     </div>
     <div class="stats" id="stats"></div>
     <input id="file" class="hidden" type="file" accept=".csv,text/csv" />
@@ -233,7 +243,7 @@
     <div class="small muted" id="empty"></div>
   </main>
 
-  <!-- Mapping modal (only shows if we can’t confidently detect columns) -->
+  <!-- Mapping modal (only shows if we can’t confidently detect a phone column anywhere) -->
   <div class="modalWrap" id="mapWrap">
     <div class="modal">
       <h2>Map CSV Columns</h2>
@@ -268,7 +278,7 @@
   // -----------------------
   // Storage
   // -----------------------
-  const STORAGE_KEY = "lead_dialer_v1";
+  const STORAGE_KEY = "lead_dialer_v2"; // bumped because we added group
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -310,7 +320,6 @@
       if ((c === "\n" || c === "\r") && !inQuotes) {
         if (c === "\r" && n === "\n") i++; // CRLF
         row.push(cur); cur = "";
-        // ignore empty trailing lines
         if (row.some(v => String(v).trim() !== "")) rows.push(row);
         row = [];
         continue;
@@ -332,11 +341,8 @@
 
   function digitsOnly(phone) {
     const d = String(phone || "").replace(/\D/g, "");
-    // If it’s 10 digits, assume US and add 1
     if (d.length === 10) return "1" + d;
-    // If it’s 11 and starts with 1, keep
     if (d.length === 11 && d.startsWith("1")) return d;
-    // otherwise return as-is (still may work)
     return d;
   }
 
@@ -346,6 +352,155 @@
     if (s === "dnc") return "DO NOT CALL";
     if (s === "sold") return "SOLD";
     return String(s).toUpperCase();
+  }
+
+  // -----------------------
+  // Multi-section CSV import helpers
+  // -----------------------
+  const PHONE_CANDIDATES = ["phone","phone_number","mobile","mobile_phone","cell","cell_phone","lead_phone","phonenumber"];
+  const NAME_CANDIDATES  = ["name","full_name","fullname","lead_name"];
+  const FIRST_CANDIDATES = ["first_name","firstname","first"];
+  const LAST_CANDIDATES  = ["last_name","lastname","last","surname"];
+
+  const HEADER_TOKENS = new Set([
+    ...PHONE_CANDIDATES, ...NAME_CANDIDATES, ...FIRST_CANDIDATES, ...LAST_CANDIDATES,
+    "email","dob","state","age","platform","best_time_of_day","status"
+  ]);
+
+  function isHeaderRow(row) {
+    const hs = row.map(normHeader);
+    let hits = 0;
+
+    // count if row has typical header words
+    for (const h of hs) {
+      if (!h) continue;
+      if (HEADER_TOKENS.has(h)) hits++;
+      // some exports use "first" / "last" plain
+      if (h.includes("first") || h.includes("last") || h.includes("phone") || h.includes("email") || h.includes("name")) hits++;
+    }
+
+    // require at least 4 "header-ish" hits to be safe
+    return hits >= 4;
+  }
+
+  function pickGroupFromHeaderRow(row, fallback) {
+    const firstCell = String(row?.[0] ?? "").trim();
+    if (!firstCell) return fallback || "Leads";
+
+    const nh = normHeader(firstCell);
+    // If the first cell is itself a header token, ignore it as a "group"
+    if (!nh || HEADER_TOKENS.has(nh) || nh.includes("first") || nh.includes("phone") || nh.includes("email") || nh.includes("name")) {
+      return fallback || "Leads";
+    }
+
+    // Otherwise treat it as group label like "Vets" / "Truckers"
+    return firstCell;
+  }
+
+  function guessPhoneColumn(rows, startRow, endRowExclusive, colCount) {
+    // scan first ~12 rows of this section to see which column looks like phone
+    const limit = Math.min(endRowExclusive, startRow + 12);
+    let bestIdx = -1;
+    let bestScore = 0;
+
+    for (let c = 0; c < colCount; c++) {
+      let score = 0;
+      for (let r = startRow; r < limit; r++) {
+        const v = String((rows[r] || [])[c] ?? "");
+        const d = v.replace(/\D/g, "");
+        if (d.length >= 10) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = c;
+      }
+    }
+    return bestIdx;
+  }
+
+  function buildLeadFromRow(row, mapping, groupLabel, seq) {
+    const rawPhone = row[mapping.idxPhone] ?? "";
+    const phoneDigits = digitsOnly(rawPhone);
+    if (!phoneDigits) return null;
+
+    let name = "";
+    if (mapping.idxName != null && mapping.idxName >= 0) {
+      name = String(row[mapping.idxName] ?? "").trim();
+    }
+    if (!name) {
+      const first = (mapping.idxFirst != null && mapping.idxFirst >= 0) ? String(row[mapping.idxFirst] ?? "").trim() : "";
+      const last  = (mapping.idxLast  != null && mapping.idxLast  >= 0) ? String(row[mapping.idxLast]  ?? "").trim() : "";
+      name = `${first} ${last}`.trim();
+    }
+    if (!name) name = `Lead ${seq}`;
+
+    return {
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      group: groupLabel || "",
+      name,
+      phone: String(rawPhone).trim(),
+      status: "",
+      notes: ""
+    };
+  }
+
+  function importMultiSectionCSV(rows) {
+    // Walk the sheet top-to-bottom.
+    // Whenever we hit a header row, we set "active mapping" and "active group".
+    // Then we import data rows until next header row.
+    let currentMapping = null;
+    let currentGroup = "Leads";
+    let imported = [];
+
+    // Find all header row indexes first (so we know section boundaries)
+    const headerIdxs = [];
+    for (let i = 0; i < rows.length; i++) {
+      if (isHeaderRow(rows[i])) headerIdxs.push(i);
+    }
+
+    // If no header rows detected, fallback to single-table logic (will show mapping modal if needed)
+    if (!headerIdxs.length) return { imported: [], didDetectSections: false, reason: "no_headers" };
+
+    for (let s = 0; s < headerIdxs.length; s++) {
+      const headerRowIndex = headerIdxs[s];
+      const nextHeaderIndex = (s + 1 < headerIdxs.length) ? headerIdxs[s + 1] : rows.length;
+
+      const headerRow = rows[headerRowIndex];
+      const headers = headerRow.map(normHeader);
+      currentGroup = pickGroupFromHeaderRow(headerRow, currentGroup);
+
+      let idxPhone = headers.findIndex(h => PHONE_CANDIDATES.includes(h));
+      let idxName  = headers.findIndex(h => NAME_CANDIDATES.includes(h));
+      let idxFirst = headers.findIndex(h => FIRST_CANDIDATES.includes(h));
+      let idxLast  = headers.findIndex(h => LAST_CANDIDATES.includes(h));
+
+      const colCount = headerRow.length || (rows[headerRowIndex+1]?.length || 0);
+
+      // If phone header not found, guess by scanning
+      if (idxPhone === -1) {
+        idxPhone = guessPhoneColumn(rows, headerRowIndex + 1, nextHeaderIndex, colCount);
+      }
+
+      // If still no phone, skip this section
+      if (idxPhone === -1) continue;
+
+      currentMapping = { idxPhone, idxName, idxFirst, idxLast };
+
+      // Import all data rows in this section
+      let seq = 1;
+      for (let r = headerRowIndex + 1; r < nextHeaderIndex; r++) {
+        const row = rows[r] || [];
+        // skip empties
+        if (!row.some(v => String(v).trim() !== "")) continue;
+        // safety: if another header sneaks in
+        if (isHeaderRow(row)) break;
+
+        const lead = buildLeadFromRow(row, currentMapping, currentGroup, seq++);
+        if (lead) imported.push(lead);
+      }
+    }
+
+    return { imported, didDetectSections: true };
   }
 
   // -----------------------
@@ -362,7 +517,7 @@
     return state.leads
       .map((l, i) => ({ lead: l, index: i }))
       .filter(({lead}) => {
-        const blob = `${lead.name||""} ${lead.phone||""} ${lead.notes||""}`.toLowerCase();
+        const blob = `${lead.group||""} ${lead.name||""} ${lead.phone||""} ${lead.notes||""}`.toLowerCase();
         return blob.includes(q);
       });
   }
@@ -398,6 +553,8 @@
       const phoneDigits = digitsOnly(lead.phone);
       const safeName = escapeHtml(lead.name || "(No name)");
       const safePhone = escapeHtml(lead.phone || "");
+      const safeGroup = escapeHtml(lead.group || "");
+
       const badgeClass = lead.status === "called" ? "called"
         : lead.status === "dnc" ? "dnc"
         : lead.status === "sold" ? "sold"
@@ -407,12 +564,16 @@
         ? `<span class="statusBadge ${badgeClass}">${statusLabel(lead.status)}</span>`
         : "";
 
+      const groupBadge = safeGroup
+        ? `<span class="groupBadge">${safeGroup.toUpperCase()}</span>`
+        : "";
+
       const div = document.createElement("div");
       div.className = "lead";
       div.innerHTML = `
         <div class="leadTop">
           <div>
-            <div class="name">${safeName}${statusBadge}</div>
+            <div class="name">${safeName}${statusBadge}${groupBadge}</div>
             <div class="meta">${safePhone ? "📱 " + safePhone : ""}</div>
           </div>
           <div class="idx">#${index + 1}</div>
@@ -517,43 +678,45 @@
       return;
     }
 
-    // Detect headers
+    // First try multi-section import (your Vets/Truckers format)
+    const multi = importMultiSectionCSV(rows);
+    if (multi.imported && multi.imported.length) {
+      state.leads = state.leads.concat(multi.imported); // preserve order, append
+      saveState(state);
+      render();
+      fileEl.value = "";
+      return;
+    }
+
+    // Fallback: single-table import (original behavior)
     const headers = rows[0].map(normHeader);
     const hasHeaders = headers.some(h => h && /[a-z]/.test(h)); // simple guess
 
-    // Try to auto-map columns by header name
     let idxPhone = -1;
     let idxName = -1;
     let idxFirst = -1;
     let idxLast = -1;
 
     if (hasHeaders) {
-      const phoneCandidates = ["phone", "phone_number", "mobile", "mobile_phone", "cell", "cell_phone", "lead_phone", "phonenumber"];
-      const nameCandidates  = ["name", "full_name", "fullname", "lead_name"];
-      const firstCandidates = ["first_name", "firstname", "first"];
-      const lastCandidates  = ["last_name", "lastname", "last", "surname"];
-
-      idxPhone = headers.findIndex(h => phoneCandidates.includes(h));
-      idxName  = headers.findIndex(h => nameCandidates.includes(h));
-      idxFirst = headers.findIndex(h => firstCandidates.includes(h));
-      idxLast  = headers.findIndex(h => lastCandidates.includes(h));
+      idxPhone = headers.findIndex(h => PHONE_CANDIDATES.includes(h));
+      idxName  = headers.findIndex(h => NAME_CANDIDATES.includes(h));
+      idxFirst = headers.findIndex(h => FIRST_CANDIDATES.includes(h));
+      idxLast  = headers.findIndex(h => LAST_CANDIDATES.includes(h));
     }
 
-    // If we can’t find phone, show mapping modal
     if (idxPhone === -1) {
       openMappingModal(rows, hasHeaders);
       fileEl.value = "";
       return;
     }
 
-    const imported = buildLeadsFromRows(rows, hasHeaders, { idxPhone, idxName, idxFirst, idxLast });
+    const imported = buildLeadsFromRowsSingle(rows, hasHeaders, { idxPhone, idxName, idxFirst, idxLast });
     if (!imported.length) {
       alert("No leads imported. Check your CSV columns.");
       fileEl.value = "";
       return;
     }
 
-    // Append to end to preserve order across multiple imports
     state.leads = state.leads.concat(imported);
     saveState(state);
     render();
@@ -568,14 +731,15 @@
   });
 
   // -----------------------
-  // Export CSV (includes status + notes)
+  // Export CSV (includes group + status + notes)
   // -----------------------
   btnExportCsv.addEventListener("click", () => {
-    const header = ["order","name","phone","status","notes"];
+    const header = ["order","group","name","phone","status","notes"];
     const lines = [header.join(",")];
     state.leads.forEach((l, i) => {
       lines.push([
         csvCell(i+1),
+        csvCell(l.group || ""),
         csvCell(l.name || ""),
         csvCell(l.phone || ""),
         csvCell(l.status || ""),
@@ -602,7 +766,7 @@
   }
 
   // -----------------------
-  // Mapping modal if headers are weird
+  // Mapping modal (fallback only)
   // -----------------------
   const mapWrap = document.getElementById("mapWrap");
   const colName = document.getElementById("colName");
@@ -629,7 +793,6 @@
         opt.textContent = String(h || `Column ${i+1}`);
         sel.appendChild(opt);
       });
-      // allow "none" for optional
       const none = document.createElement("option");
       none.value = "-1";
       none.textContent = "(none)";
@@ -642,7 +805,7 @@
     fillSelect(colFirst);
     fillSelect(colLast);
 
-    // Help a little: try guess phone by scanning first few rows for 10+ digits
+    // Guess phone by scanning first few rows
     const scan = (col) => {
       const start = hasHeaders ? 1 : 0;
       let hits = 0;
@@ -655,7 +818,7 @@
     };
 
     let bestPhone = 0, bestIdx = -1;
-    const cols = (hasHeaders ? rows[0].length : rows[0].length);
+    const cols = rows[0].length;
     for (let c = 0; c < cols; c++) {
       const score = scan(c);
       if (score > bestPhone) { bestPhone = score; bestIdx = c; }
@@ -683,7 +846,7 @@
       return;
     }
 
-    const imported = buildLeadsFromRows(pendingRows, pendingHasHeaders, { idxPhone, idxName, idxFirst, idxLast });
+    const imported = buildLeadsFromRowsSingle(pendingRows, pendingHasHeaders, { idxPhone, idxName, idxFirst, idxLast });
     if (!imported.length) {
       alert("No leads imported. Check the selected columns.");
       return;
@@ -696,37 +859,13 @@
     render();
   });
 
-  function buildLeadsFromRows(rows, hasHeaders, mapping) {
+  function buildLeadsFromRowsSingle(rows, hasHeaders, mapping) {
     const start = hasHeaders ? 1 : 0;
     const out = [];
     for (let r = start; r < rows.length; r++) {
       const row = rows[r] || [];
-      const rawPhone = row[mapping.idxPhone] ?? "";
-      const phoneDigits = digitsOnly(rawPhone);
-      if (!phoneDigits) continue;
-
-      let name = "";
-      if (mapping.idxName != null && mapping.idxName >= 0) {
-        name = String(row[mapping.idxName] ?? "").trim();
-      }
-
-      // If no full name, combine first/last if available
-      if (!name) {
-        const first = (mapping.idxFirst != null && mapping.idxFirst >= 0) ? String(row[mapping.idxFirst] ?? "").trim() : "";
-        const last  = (mapping.idxLast  != null && mapping.idxLast  >= 0) ? String(row[mapping.idxLast]  ?? "").trim() : "";
-        name = `${first} ${last}`.trim();
-      }
-
-      // As a final fallback, use phone as name
-      if (!name) name = `Lead ${out.length + 1}`;
-
-      out.push({
-        id: `${Date.now()}_${r}_${Math.random().toString(16).slice(2)}`,
-        name,
-        phone: String(rawPhone).trim(),
-        status: "",
-        notes: ""
-      });
+      const lead = buildLeadFromRow(row, mapping, "", out.length + 1);
+      if (lead) out.push(lead);
     }
     return out;
   }
