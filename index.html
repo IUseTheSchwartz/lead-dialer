@@ -5,78 +5,136 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Lead Dialer</title>
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --bg: #000000;
+      --panel: #0b0b0b;
+      --panel2: #111111;
+      --border: rgba(255,255,255,.12);
+      --border2: rgba(255,255,255,.18);
+      --text: #e5e7eb;
+      --muted: rgba(229,231,235,.78);
+      --emerald: #10b981;
+      --emerald2: rgba(16,185,129,.22);
+      --danger: rgba(239,68,68,.20);
+      --warn: rgba(245,158,11,.20);
+    }
+
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      background: #0b1220;
-      color: #e5e7eb;
+      background: var(--bg);
+      color: var(--text);
     }
+
     header {
       position: sticky;
       top: 0;
       z-index: 10;
-      background: rgba(11,18,32,.92);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(16,185,129,.18);
       padding: 14px 14px 10px;
     }
-    h1 { margin: 0 0 10px; font-size: 18px; font-weight: 800; letter-spacing: .2px; }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: .2px;
+    }
+
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
     button, select, input[type="text"] {
       appearance: none;
-      border: 1px solid rgba(255,255,255,.12);
-      background: #121b2f;
-      color: #e5e7eb;
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      color: var(--text);
       border-radius: 12px;
       padding: 10px 12px;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 14px;
+      outline: none;
     }
+    input[type="text"]::placeholder { color: rgba(229,231,235,.45); }
+
     button { cursor: pointer; }
-    button.primary { background: #1f2937; border-color: rgba(255,255,255,.14); }
-    button.danger { background: #2b1220; border-color: rgba(255,255,255,.14); }
-    button.good { background: #0f2a1b; border-color: rgba(255,255,255,.14); }
-    button.info { background: #0f2230; border-color: rgba(255,255,255,.14); }
-    .hint { opacity: .8; font-size: 12px; margin-top: 8px; }
+    button:hover, select:hover, input[type="text"]:hover { border-color: rgba(16,185,129,.35); }
+
+    /* Buttons */
+    button.primary {
+      background: rgba(16,185,129,.14);
+      border-color: rgba(16,185,129,.35);
+      color: var(--text);
+    }
+    button.info {
+      background: rgba(255,255,255,.06);
+      border-color: var(--border);
+      color: var(--text);
+    }
+    button.danger {
+      background: rgba(239,68,68,.10);
+      border-color: rgba(239,68,68,.28);
+      color: var(--text);
+    }
+    button.good {
+      background: rgba(16,185,129,.18);
+      border-color: rgba(16,185,129,.42);
+      color: var(--text);
+    }
+
+    .hint { display: none; } /* removed the line you didn’t want */
+
     main { padding: 14px; }
+
     .stats {
-      display: flex; gap: 10px; flex-wrap: wrap;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
       margin: 10px 0 0;
       font-size: 12px;
-      opacity: .9;
+      opacity: .95;
     }
+
     .chip {
-      border: 1px solid rgba(255,255,255,.12);
+      border: 1px solid rgba(16,185,129,.24);
       padding: 6px 10px;
       border-radius: 999px;
-      background: rgba(18,27,47,.8);
+      background: rgba(16,185,129,.08);
     }
+    .chip b { color: var(--text); }
+
     .lead {
       border: 1px solid rgba(255,255,255,.10);
-      background: rgba(18,27,47,.65);
+      background: rgba(255,255,255,.05);
       border-radius: 16px;
       padding: 12px;
       margin-bottom: 12px;
     }
+
     .leadTop {
       display: flex;
       justify-content: space-between;
       gap: 10px;
       align-items: flex-start;
     }
+
     .name { font-size: 16px; font-weight: 900; margin: 0 0 6px; }
-    .meta { font-size: 12px; opacity: .85; }
+    .meta { font-size: 12px; color: var(--muted); }
+
     .idx {
       font-size: 12px;
-      opacity: .9;
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.10);
+      opacity: .95;
+      background: rgba(16,185,129,.10);
+      border: 1px solid rgba(16,185,129,.22);
       border-radius: 999px;
       padding: 4px 8px;
       white-space: nowrap;
     }
+
     .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+
     a.btn {
       display: inline-block;
       text-decoration: none;
@@ -84,15 +142,22 @@
       padding: 10px 12px;
       font-weight: 900;
       font-size: 14px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: #0f2a1b;
-      color: #e5e7eb;
+      border: 1px solid rgba(16,185,129,.35);
+      background: rgba(16,185,129,.16);
+      color: var(--text);
     }
-    a.btn.ft { background: #0f2230; }
-    a.btn.sms { background: #1b1b30; }
+    a.btn:hover { border-color: rgba(16,185,129,.55); background: rgba(16,185,129,.20); }
+    a.btn.ft { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.06); }
+    a.btn.sms { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.06); }
+
     .controls {
-      display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      align-items: center;
     }
+
     textarea {
       width: 100%;
       min-height: 60px;
@@ -100,25 +165,29 @@
       resize: vertical;
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,.12);
-      background: #0f172a;
-      color: #e5e7eb;
+      background: #0a0a0a;
+      color: var(--text);
       padding: 10px 12px;
       font-size: 14px;
       line-height: 1.35;
+      outline: none;
     }
+    textarea:focus { border-color: rgba(16,185,129,.45); }
+
     .statusBadge {
       font-size: 12px;
       font-weight: 900;
       padding: 4px 8px;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.06);
       display: inline-block;
       margin-left: 6px;
     }
-    .called { background: rgba(245,158,11,.14); }
-    .dnc { background: rgba(239,68,68,.16); }
-    .sold { background: rgba(34,197,94,.14); }
+    .called { background: var(--warn); border-color: rgba(245,158,11,.35); }
+    .dnc { background: var(--danger); border-color: rgba(239,68,68,.35); }
+    .sold { background: var(--emerald2); border-color: rgba(16,185,129,.40); }
+
     .muted { opacity: .8; }
     .divider { height: 1px; background: rgba(255,255,255,.08); margin: 10px 0; }
     .small { font-size: 12px; opacity: .85; }
@@ -126,14 +195,20 @@
 
     /* Simple modal */
     .modalWrap {
-      position: fixed; inset: 0; background: rgba(0,0,0,.6);
-      display: none; align-items: center; justify-content: center;
-      padding: 16px; z-index: 50;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 50;
     }
     .modal {
-      width: 100%; max-width: 520px;
-      background: #0b1220;
-      border: 1px solid rgba(255,255,255,.14);
+      width: 100%;
+      max-width: 520px;
+      background: #050505;
+      border: 1px solid rgba(16,185,129,.22);
       border-radius: 18px;
       padding: 14px;
     }
@@ -150,7 +225,6 @@
       <input id="search" type="text" placeholder="Search name/phone..." />
     </div>
     <div class="stats" id="stats"></div>
-    <div class="hint">Stores on your phone (local). Keeps CSV order exactly. Tap Call / FaceTime Audio.</div>
     <input id="file" class="hidden" type="file" accept=".csv,text/csv" />
   </header>
 
@@ -446,9 +520,6 @@
     // Detect headers
     const headers = rows[0].map(normHeader);
     const hasHeaders = headers.some(h => h && /[a-z]/.test(h)); // simple guess
-
-    // Build data rows
-    const dataRows = hasHeaders ? rows.slice(1) : rows;
 
     // Try to auto-map columns by header name
     let idxPhone = -1;
