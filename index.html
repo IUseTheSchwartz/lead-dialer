@@ -2,8 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Lead Dialer</title>
+
+  <!-- PWA / iOS "app-like" -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Lead Dialer" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
   <style>
     :root {
       color-scheme: dark;
@@ -25,13 +35,17 @@
       --warnBg: rgba(245,158,11,.14);
     }
 
+    html, body { height: 100%; background: var(--bg); }
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
     }
 
+    /* Respect iPhone notch / home indicator when in standalone */
     header {
       position: sticky;
       top: 0;
@@ -39,7 +53,12 @@
       background: rgba(0,0,0,.92);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid rgba(16,185,129,.18);
-      padding: 14px 14px 10px;
+      padding: calc(14px + env(safe-area-inset-top)) 14px 10px;
+    }
+
+    main {
+      padding: 14px;
+      padding-bottom: calc(14px + env(safe-area-inset-bottom));
     }
 
     h1 {
@@ -85,8 +104,6 @@
     }
 
     .hint { display: none; } /* removed the hint line */
-
-    main { padding: 14px; }
 
     .stats {
       display: flex;
@@ -448,7 +465,6 @@
     // Walk the sheet top-to-bottom.
     // Whenever we hit a header row, we set "active mapping" and "active group".
     // Then we import data rows until next header row.
-    let currentMapping = null;
     let currentGroup = "Leads";
     let imported = [];
 
@@ -458,7 +474,7 @@
       if (isHeaderRow(rows[i])) headerIdxs.push(i);
     }
 
-    // If no header rows detected, fallback to single-table logic (will show mapping modal if needed)
+    // If no header rows detected, fallback to single-table logic
     if (!headerIdxs.length) return { imported: [], didDetectSections: false, reason: "no_headers" };
 
     for (let s = 0; s < headerIdxs.length; s++) {
@@ -484,18 +500,16 @@
       // If still no phone, skip this section
       if (idxPhone === -1) continue;
 
-      currentMapping = { idxPhone, idxName, idxFirst, idxLast };
+      const mapping = { idxPhone, idxName, idxFirst, idxLast };
 
       // Import all data rows in this section
       let seq = 1;
       for (let r = headerRowIndex + 1; r < nextHeaderIndex; r++) {
         const row = rows[r] || [];
-        // skip empties
         if (!row.some(v => String(v).trim() !== "")) continue;
-        // safety: if another header sneaks in
         if (isHeaderRow(row)) break;
 
-        const lead = buildLeadFromRow(row, currentMapping, currentGroup, seq++);
+        const lead = buildLeadFromRow(row, mapping, currentGroup, seq++);
         if (lead) imported.push(lead);
       }
     }
@@ -688,7 +702,7 @@
       return;
     }
 
-    // Fallback: single-table import (original behavior)
+    // Fallback: single-table import
     const headers = rows[0].map(normHeader);
     const hasHeaders = headers.some(h => h && /[a-z]/.test(h)); // simple guess
 
